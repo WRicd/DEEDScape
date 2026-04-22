@@ -1,4 +1,8 @@
 node_modules/
-
-# *.log
-# temp/
+data/DreamEEG/
+.idea/
+.vscode/
+*.log
+temp/
+.gitignore
+.env
