@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Space+Grotesk:wght@300;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEED: The Dreamscape Visualization</title>
+    <style>
+        :root {
+            --bg: #06070b;
+            --panel: rgba(11, 16, 23, 0.76);
+            --panel-strong: rgba(10, 14, 19, 0.92);
+            --line: rgba(255, 255, 255, 0.12);
+            --line-soft: rgba(255, 255, 255, 0.08);
+            --text: #eef3f7;
+            --muted: #95a4b2;
+            --accent: #7be6ff;
+            --accent-rgb: 123, 230, 255;
+            --shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
+            --ui-font: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 18% 18%, rgba(28, 72, 85, 0.34), transparent 32%),
+                radial-gradient(circle at 78% 24%, rgba(101, 53, 34, 0.22), transparent 24%),
+                radial-gradient(circle at 52% 85%, rgba(15, 54, 78, 0.28), transparent 32%),
+                linear-gradient(180deg, #030406 0%, #06070b 48%, #0a1017 100%);
+            color: var(--text);
+            font-family: var(--ui-font);
+        }
+
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::before {
+            background:
+                linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+            background-size: 140px 140px;
+            mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.85), transparent 78%);
+            opacity: 0.32;
+        }
+
+        body::after {
+            background: radial-gradient(circle at center, transparent 48%, rgba(0, 0, 0, 0.56) 100%);
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+        }
+
+        #canvas-container canvas {
+            display: block;
+        }
+
+        .ui-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #loader {
+            position: fixed;
+            inset: 0;
+            z-index: 130;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(circle at center, rgba(10, 24, 34, 0.3), transparent 28%),
+                linear-gradient(180deg, rgba(2, 4, 7, 0.995) 0%, rgba(4, 6, 10, 0.995) 100%);
+            opacity: 1;
+            transition: opacity 1.15s ease, visibility 1.15s ease;
+            overflow: hidden;
+        }
+
+        #loader::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 50% 58%, rgba(var(--accent-rgb), 0.08), transparent 26%),
+                radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03), transparent 42%);
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        #loader.is-hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loader-content {
+            position: relative;
+            z-index: 2;
+            width: min(760px, calc(100vw - 48px));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            text-align: center;
+        }
+
+        .loader-kicker {
+            color: rgba(255, 255, 255, 0.54);
+            font-size: 11px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .loader-breath {
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #f2fdff 0%, #7be6ff 42%, #12b1ff 100%);
+            box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.88), 0 0 64px rgba(var(--accent-rgb), 0.22);
+            animation: loader-breathe 3.2s ease-in-out infinite;
+            transition: transform 0.9s ease, opacity 0.9s ease, box-shadow 0.9s ease;
+        }
+
+        .loader-copy {
+            max-width: 720px;
+            min-height: 226px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 14px;
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.9s ease, transform 0.9s ease;
+        }
+
+        .loader-copy.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .loader-copy-en {
+            margin: 0;
+            font-family: var(--display-font);
+            font-size: clamp(28px, 3.8vw, 42px);
+            line-height: 1.06;
+            letter-spacing: 0.01em;
+            animation: loader-text-breathe 4.6s ease-in-out infinite;
+        }
+
+        .loader-copy-cn {
+            margin: 0 auto;
+            max-width: 680px;
+            color: rgba(229, 238, 244, 0.78);
+            font-size: 18px;
+            line-height: 1.9;
+            animation: loader-text-breathe 4.6s ease-in-out infinite;
+            animation-delay: 0.28s;
+        }
+
+        #loader[data-stage="macro"] .loader-breath {
+            transform: scale(1.14);
+            opacity: 0.9;
+            box-shadow: 0 0 28px rgba(var(--accent-rgb), 0.98), 0 0 88px rgba(var(--accent-rgb), 0.34);
+        }
+
+        .loader-stars {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        #eeg-canvas {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 120px;
+            transform: translateY(-50%);
+            opacity: 0.38;
+            pointer-events: none;
+            z-index: 1;
+            mix-blend-mode: screen;
+            filter: blur(0.2px);
+        }
+
+        .loader-star {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.92) 0%, rgba(var(--accent-rgb), 0.9) 64%, rgba(var(--accent-rgb), 0) 100%);
+            box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.52);
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.2);
+        }
+
+        #loader.burst .loader-star {
+            animation: star-burst 1.7s ease-out forwards;
+            animation-delay: var(--delay, 0s);
+        }
+
+        .loader-progress {
+            width: min(360px, calc(100vw - 90px));
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .loader-progress-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.74);
+            font-size: 12px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        #progress-text {
+            font-family: "Courier New", monospace;
+            font-size: 18px;
+            letter-spacing: 0.08em;
+        }
+
+        .loader-progress-track {
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        #loader-progress-fill {
+            width: 0%;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.26), rgba(var(--accent-rgb), 1));
+            box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.45);
+            transition: width 0.18s ease;
+        }
+
+        #loader-status {
+            color: rgba(255, 255, 255, 0.48);
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        #loader-enter {
+            margin-top: 10px;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.07);
+            color: var(--text);
+            font-size: 13px;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(18px);
+            transition: opacity 0.7s ease, transform 0.7s ease, background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .hold-shell {
+            position: relative;
+            display: grid;
+            place-items: center;
+            gap: 10px;
+            padding: 14px 26px 14px;
+            min-width: min(440px, calc(100vw - 80px));
+        }
+
+        .hold-ring {
+            width: 74px;
+            height: 74px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.04);
+            box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.32);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .hold-fill {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 0%;
+        background: rgba(100, 100, 100, 1); 
+        transition: height 0.06s linear;
+        }
+
+        .hold-ring::after {
+            content: "";
+            position: absolute;
+            inset: 10px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.7), rgba(var(--accent-rgb), 0.24) 55%, rgba(0, 0, 0, 0) 70%);
+            opacity: 0.9;
+            animation: loader-breathe 3.6s ease-in-out infinite;
+        }
+
+        .hold-label {
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.82);
+            line-height: 1.6;
+        }
+
+        .hold-sub {
+            display: block;
+            margin-top: 2px;
+            color: rgba(229, 238, 244, 0.62);
+            font-size: 11px;
+            letter-spacing: 0.12em;
+        }
+
+        #loader-enter.is-ready {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        #loader-enter:hover {
+            background: rgba(var(--accent-rgb), 0.13);
+            border-color: rgba(var(--accent-rgb), 0.45);
+        }
+
+        #tooltip {
+            position: absolute;
+            display: none;
+            width: min(300px, calc(100vw - 32px));
+            background: rgba(12, 18, 25, 0.84);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            padding: 20px 20px 18px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            pointer-events: none;
+            box-shadow: var(--shadow);
+            line-height: 1.65;
+            color: #e6edf2;
+            transform: translateY(10px);
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .tooltip-title {
+            margin-bottom: 10px;
+            font-size: 11px;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .tooltip-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .tooltip-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 11px;
+            letter-spacing: 0.4px;
+        }
+
+        .tooltip-dream {
+            margin-top: 8px;
+            padding-left: 14px;
+            border-left: 1px solid rgba(var(--accent-rgb), 0.4);
+            color: #bfcbd6;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        #hud-top-left,
+        #hud-bottom-left {
+            position: absolute;
+            left: 34px;
+            max-width: min(520px, calc(100vw - 40px));
+            text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+        }
+
+        #hud-top-left {
+            top: 28px;
+        }
+
+        #hud-bottom-left {
+            bottom: 28px;
+        }
+
+        .hud-kicker {
+            margin-bottom: 10px;
+            color: rgba(255, 255, 255, 0.54);
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .hud-title {
+            margin: 0;
+            font-family: var(--display-font);
+            font-size: clamp(32px, 4vw, 54px);
+            font-weight: 400;
+            line-height: 0.95;
+            letter-spacing: 0.02em;
+        }
+
+        .hud-subtitle {
+            margin-top: 10px;
+            color: rgba(224, 234, 241, 0.72);
+            font-size: 13px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .hud-storyline {
+            max-width: 360px;
+            margin: 0 0 8px;
+            font-family: var(--display-font);
+            font-size: 21px;
+            line-height: 1.15;
+            color: rgba(245, 248, 250, 0.88);
+        }
+
+        #hud-instruction {
+            max-width: 400px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.78;
+        }
+
+        #info-toggle {
+            position: absolute;
+            top: 26px;
+            right: 28px;
+            z-index: 22;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            cursor: pointer;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: transform 0.28s ease, border-color 0.28s ease, background 0.28s ease;
+        }
+
+        #info-toggle:hover,
+        #info-close:hover,
+        .info-chip:hover,
+        #btn-back:hover,
+        .action-button:hover {
+            transform: translateY(-2px);
+            border-color: rgba(var(--accent-rgb), 0.5);
+            background: rgba(var(--accent-rgb), 0.12);
+        }
+
+        .info-toggle-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+
+        .info-toggle-label {
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: min(520px, calc(100vw - 24px));
+            height: calc(100vh - 32px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 28px;
+            background: rgba(10, 14, 19, 0.72);
+            backdrop-filter: blur(26px);
+            -webkit-backdrop-filter: blur(26px);
+            box-shadow: var(--shadow);
+            transform: translateX(108%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease;
+            overflow: hidden;
+        }
+
+        #info-panel.is-open {
+            transform: translateX(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .info-shell {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 24px 0;
+        }
+
+        .info-topbar-title {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .info-topbar-title strong {
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.54);
+        }
+
+        .info-topbar-title span {
+            font-family: var(--display-font);
+            font-size: 20px;
+            line-height: 1.15;
+        }
+
+        #info-close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.28s ease, border-color 0.28s ease, background 0.28s ease;
+        }
+
+        #info-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px 24px 24px;
+        }
+
+        #info-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #info-scroll::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .info-section {
+            padding: 22px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .info-section:last-child {
+            border-bottom: none;
+        }
+
+        .info-section-kicker {
+            margin-bottom: 10px;
+            color: rgba(var(--accent-rgb), 0.92);
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .info-section-title {
+            margin: 0 0 14px;
+            font-family: var(--display-font);
+            font-size: clamp(28px, 3.2vw, 40px);
+            line-height: 1.04;
+        }
+
+        .info-section-subtitle {
+            margin: -6px 0 16px;
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 13px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+        }
+
+        .info-paragraph {
+            margin: 0 0 14px;
+            color: #d9e1e8;
+            font-size: 14px;
+            line-height: 1.9;
+        }
+
+        .info-paragraph.cn {
+            color: rgba(222, 231, 238, 0.76);
+        }
+
+        .info-visual-card {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 16px;
+            margin-top: 16px;
+            padding: 18px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .info-orb {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fff4df 0%, #ffc666 32%, #ff8b34 100%);
+            box-shadow: 0 0 20px rgba(255, 180, 64, 0.45);
+            animation: legend-pulse 2.3s ease-in-out infinite;
+        }
+
+        .info-card-title {
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .info-card-title strong {
+            display: block;
+            color: #f5fbff;
+        }
+
+        .info-card-title span {
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 15px;
+        }
+
+        .gradient-underline {
+            display: inline;
+            background-image: linear-gradient(90deg, rgba(255, 204, 96, 0.85) 0%, rgba(104, 112, 255, 0.85) 52%, rgba(255, 84, 113, 0.86) 100%);
+            background-size: 100% 0.38em;
+            background-repeat: no-repeat;
+            background-position: 0 100%;
+        }
+
+        .bridge-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .info-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.84);
+            font-size: 12px;
+            letter-spacing: 0.4px;
+            transition: transform 0.28s ease, border-color 0.28s ease, background 0.28s ease;
+        }
+
+        #sidebar {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            width: min(460px, calc(100vw - 24px));
+            height: calc(100vh - 36px);
+            padding: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            background: linear-gradient(180deg, rgba(11, 16, 23, 0.9) 0%, rgba(10, 14, 19, 0.72) 100%);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            opacity: 0;
+            transform: translateX(110%);
+            transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease;
+            pointer-events: none;
+        }
+
+        #sidebar::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(135deg, rgba(var(--accent-rgb), 0.18), transparent 34%),
+                radial-gradient(circle at 85% 18%, rgba(var(--accent-rgb), 0.16), transparent 28%);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        #sidebar.is-open {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .sidebar-shell {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-scroll {
+            overflow-y: auto;
+            padding-right: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .section-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            color: rgba(255, 255, 255, 0.54);
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .section-label::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .archive-kicker {
+            color: rgba(var(--accent-rgb), 0.92);
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .archive-id {
+            margin-top: 6px;
+            font-family: var(--display-font);
+            font-size: clamp(34px, 6vw, 48px);
+            line-height: 0.92;
+            letter-spacing: 0.02em;
+        }
+
+        .archive-meta {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .archive-sequence {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 14px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.84);
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .metric-card {
+            padding: 16px 16px 14px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .metric-label {
+            color: rgba(255, 255, 255, 0.56);
+            font-size: 10px;
+            letter-spacing: 2.2px;
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            margin-top: 8px;
+            font-size: 20px;
+            color: var(--text);
+        }
+
+        .metric-note {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .eeg-bar-container {
+            position: relative;
+            width: 100%;
+            height: 8px;
+            margin-top: 16px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        #eeg-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.5), rgba(var(--accent-rgb), 1));
+            box-shadow: 0 0 28px rgba(var(--accent-rgb), 0.45);
+            transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .eeg-scale {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.38);
+            font-size: 11px;
+        }
+
+        .tag-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .archive-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        .dream-quote {
+            margin: 0;
+            padding: 20px 20px 20px 22px;
+            border-left: 1px solid rgba(var(--accent-rgb), 0.4);
+            border-radius: 0 18px 18px 0;
+            background: rgba(255, 255, 255, 0.035);
+            color: #d6dee6;
+            font-family: var(--display-font);
+            font-size: 19px;
+            line-height: 1.58;
+            white-space: pre-wrap;
+        }
+
+        .sidebar-thread,
+        .route-detail {
+            color: #bdc8d3;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .route-card {
+            padding: 16px 18px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .route-title {
+            color: #eff7fb;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .bilingual-sub {
+            display: block;
+            margin-top: 6px;
+            color: rgba(255, 255, 255, 0.52);
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .sidebar-actions {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-top: 8px;
+        }
+
+        .action-button,
+        #btn-back {
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            cursor: pointer;
+            transition: transform 0.28s ease, border-color 0.28s ease, background 0.28s ease, opacity 0.28s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+            pointer-events: auto;
+        }
+
+        .action-button {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 13px;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+        }
+
+        .action-button:disabled {
+            opacity: 0.35;
+            cursor: default;
+            transform: none;
+            border-color: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .sidebar-hint {
+            color: rgba(255, 255, 255, 0.48);
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        #journey-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 24;
+            display: none;
+            background:
+                radial-gradient(circle at 25% 22%, rgba(var(--accent-rgb), 0.24), transparent 40%),
+                radial-gradient(circle at 80% 76%, rgba(124, 106, 255, 0.16), transparent 45%),
+                linear-gradient(180deg, rgba(5, 8, 14, 0.84), rgba(3, 5, 10, 0.94));
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        #journey-overlay.is-visible {
+            display: block;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .journey-media {
+            position: absolute;
+            inset: -20%;
+            transform: translateZ(0);
+            background:
+                radial-gradient(circle at 26% 30%, rgba(var(--accent-rgb), 0.38), transparent 44%),
+                radial-gradient(circle at 78% 66%, rgba(125, 97, 255, 0.34), transparent 42%),
+                linear-gradient(125deg, rgba(16, 22, 34, 0.92), rgba(6, 9, 16, 0.96));
+            filter: blur(0px);
+        }
+
+        .journey-media::before,
+        .journey-media::after {
+            content: "";
+            position: absolute;
+            inset: -40%;
+            background: conic-gradient(
+                from 0deg,
+                rgba(var(--accent-rgb), 0.04),
+                rgba(255, 170, 110, 0.1),
+                rgba(127, 105, 255, 0.12),
+                rgba(var(--accent-rgb), 0.04)
+            );
+            animation: journey-swirl 10s linear infinite;
+        }
+
+        .journey-media::after {
+            animation-direction: reverse;
+            animation-duration: 14s;
+            opacity: 0.7;
+        }
+
+        .journey-stack {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            padding: 48px 24px 36px;
+        }
+
+        .journey-panel {
+            position: absolute;
+            display: flex;
+            flex-direction: column; 
+            width: min(1100px, calc(100vw - 56px));
+            height: min(74vh, 720px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(10, 10, 10, 0.3);
+            box-shadow: 0 24px 68px rgba(0, 0, 0, 0.44);
+            -webkit-backdrop-filter: blur(15px);
+            backdrop-filter: blur(15px);
+            overflow: hidden;
+            transform: translateY(10px) scale(0.992);
+            opacity: 0;
+            transition: opacity 0.55s ease, transform 0.65s cubic-bezier(0.22, 0.8, 0.22, 1);
+        }
+
+        .journey-panel-inner {
+            flex: 1;
+            position: relative;
+            padding: 48px 56px 40px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .journey-hint {
+            margin-top: auto; 
+            padding-top: 32px;
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 15px;
+            letter-spacing: 0.8px;
+        }
+
+        .journey-panel.is-active {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .journey-panel.is-exiting {
+            opacity: 0;
+            transform: translateY(-14px) scale(0.994);
+        }
+
+        .journey-kicker {
+            color: rgba(var(--accent-rgb), 0.92);
+            font-size: 15px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .journey-title {
+            margin-top: 8px;
+            font-family: var(--display-font);
+            font-size: clamp(32px, 3.4vw, 46px);
+            line-height: 1.05;
+        }
+
+        .journey-body {
+            margin-top: 16px;
+            color: rgba(227, 236, 245, 0.92);
+            font-size: clamp(15px, 1.35vw, 18px);
+            line-height: 1.9;
+            white-space: pre-wrap;
+        }
+
+        .journey-progress {
+            margin-top: 10px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .journey-progress span {
+            flex: 1;
+            height: 3px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.14);
+            transition: background 0.26s ease, box-shadow 0.26s ease;
+        }
+
+        .journey-progress span.is-active {
+            background: rgba(var(--accent-rgb), 0.86);
+            box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.5);
+        }
+
+        #dream-fragment {
+            position: absolute;
+            display: none;
+            width: min(360px, calc(100vw - 40px));
+            padding: 18px 20px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 22px;
+            background: rgba(10, 15, 22, 0.78);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            box-shadow: var(--shadow);
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.32s ease, transform 0.32s ease;
+            pointer-events: none;
+        }
+
+        #dream-fragment::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background:
+                linear-gradient(135deg, rgba(var(--accent-rgb), 0.2), transparent 36%),
+                radial-gradient(circle at 85% 15%, rgba(var(--accent-rgb), 0.16), transparent 28%);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        #dream-fragment.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .dream-fragment-kicker {
+            color: rgba(var(--accent-rgb), 0.92);
+            font-size: 10px;
+            letter-spacing: 2.8px;
+            text-transform: uppercase;
+        }
+
+        .dream-fragment-title {
+            margin-top: 8px;
+            font-family: var(--display-font);
+            font-size: 23px;
+            line-height: 1.08;
+        }
+
+        .dream-fragment-meta {
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.68);
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .dream-fragment-media {
+            margin-top: 12px;
+            height: 120px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background:
+                radial-gradient(circle at 18% 28%, rgba(var(--accent-rgb), 0.36), transparent 42%),
+                radial-gradient(circle at 82% 72%, rgba(255, 138, 77, 0.26), transparent 40%),
+                linear-gradient(130deg, rgba(14, 20, 32, 0.96), rgba(8, 12, 20, 0.92));
+            overflow: hidden;
+            position: relative;
+        }
+
+        .dream-fragment-media::before {
+            content: "";
+            position: absolute;
+            inset: -22%;
+            background: conic-gradient(
+                from 0deg,
+                rgba(var(--accent-rgb), 0.06),
+                rgba(114, 92, 255, 0.16),
+                rgba(255, 176, 82, 0.12),
+                rgba(var(--accent-rgb), 0.06)
+            );
+            animation: journey-swirl 12s linear infinite;
+        }
+
+        .dream-fragment-media-label {
+            position: absolute;
+            left: 10px;
+            bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 12, 20, 0.68);
+            color: rgba(241, 246, 255, 0.88);
+            font-size: 10px;
+            letter-spacing: 1.1px;
+            text-transform: uppercase;
+        }
+
+        .dream-fragment-body {
+            position: relative;
+            margin-top: 14px;
+            color: #dfe7ed;
+            font-size: 14px;
+            line-height: 1.8;
+            min-height: 86px;
+            white-space: pre-wrap;
+        }
+
+        .dream-fragment-body::after {
+            content: "▍";
+            margin-left: 4px;
+            color: rgba(var(--accent-rgb), 0.86);
+            animation: type-cursor 1s steps(1) infinite;
+        }
+
+        #btn-back {
+            position: absolute;
+            left: 50%;
+            bottom: 28px;
+            z-index: 20;
+            min-width: 230px;
+            padding: 13px 24px;
+            font-size: 13px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        #btn-view-toggle {
+            position: absolute;
+            right: 28px;
+            bottom: 28px;
+            z-index: 20;
+            padding: 13px 24px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+            transition: transform 0.28s ease, border-color 0.28s ease, background 0.28s ease, opacity 0.5s ease;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            
+            /* 初始隐藏，等看完卡片进入星系后再显示 */
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(20px);
+        }
+
+        #btn-view-toggle.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        #btn-view-toggle:hover {
+            transform: translateY(-2px);
+            border-color: rgba(var(--accent-rgb), 0.5);
+            background: rgba(var(--accent-rgb), 0.12);
+        }
+
+        @keyframes loader-breathe {
+            0%, 100% {
+                transform: scale(0.82);
+                opacity: 0.6;
+                box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.64), 0 0 34px rgba(var(--accent-rgb), 0.16);
+            }
+            50% {
+                transform: scale(1.18);
+                opacity: 1;
+                box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.94), 0 0 54px rgba(var(--accent-rgb), 0.38);
+            }
+        }
+
+        @keyframes wave-drift {
+            from {
+                stroke-dashoffset: 0;
+            }
+            to {
+                stroke-dashoffset: -280;
+            }
+        }
+
+        @keyframes star-burst {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.2);
+            }
+            10% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.3);
+            }
+        }
+
+        @keyframes legend-pulse {
+            0%, 100% {
+                transform: scale(0.86);
+                box-shadow: 0 0 14px rgba(255, 180, 64, 0.24);
+            }
+            50% {
+                transform: scale(1.08);
+                box-shadow: 0 0 22px rgba(255, 180, 64, 0.42);
+            }
+        }
+
+        @keyframes loader-text-breathe {
+            0%, 100% {
+                opacity: 0.78;
+                transform: translateY(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translateY(-2px);
+            }
+        }
+
+        @keyframes type-cursor {
+            0%, 49% {
+                opacity: 1;
+            }
+            50%, 100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes journey-swirl {
+            from {
+                transform: rotate(0deg) scale(1);
+            }
+            to {
+                transform: rotate(360deg) scale(1.1);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .journey-panel {
+                min-height: min(76vh, 760px);
+                width: calc(100vw - 24px);
+                border-radius: 24px;
+            }
+            .journey-panel-inner {
+                padding: 22px 18px 18px;
+            }
+            .journey-body {
+                min-height: 220px;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            #info-panel,
+            #sidebar {
+                width: min(470px, calc(100vw - 24px));
+            }
+        }
+
+        @media (max-width: 980px) {
+            #hud-top-left {
+                left: 24px;
+                top: 22px;
+            }
+
+            #hud-bottom-left {
+                left: 24px;
+                bottom: 110px;
+                max-width: calc(100vw - 48px);
+            }
+
+            #info-toggle {
+                top: 20px;
+                right: 20px;
+            }
+
+            #info-panel,
+            #sidebar {
+                top: auto;
+                right: 12px;
+                bottom: 90px;
+                left: 12px;
+                width: auto;
+                height: min(68vh, 700px);
+                border-radius: 24px;
+                transform: translateY(110%);
+            }
+
+            #info-panel.is-open,
+            #sidebar.is-open {
+                transform: translateY(0);
+            }
+
+            .dream-quote {
+                font-size: 17px;
+            }
+
+            .data-grid,
+            .info-visual-card {
+                grid-template-columns: 1fr;
+            }
+
+            .loader-copy {
+                min-height: 250px;
+            }
+        }
+    
+#journey-overlay {
+    transition: background 1.5s ease-in-out, opacity 0.5s ease;
+}
+
+.journey-panel {
+        transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .journey-title {
+        font-family: 'Cinzel', serif !important; 
+        font-size: clamp(32px, 3.4vw, 46px) !important; 
+        line-height: 1.1;
+        margin-top: 12px;
+    }
+
+    .journey-body {
+        font-family: 'Cinzel', serif !important; 
+        font-size: clamp(16px, 1.4vw, 19px) !important; 
+        line-height: 1.8;
+        color: rgba(227, 236, 245, 0.85);
+    }
+
+    .journey-body i,
+    .journey-body em {
+        font-style: italic;
+        opacity: 0.8;
+        font-weight: 300;
+        display: block; 
+        margin-top: 10px;
+    }
+
+    .journey-kicker {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 14px;
+        letter-spacing: 3px;
+        opacity: 0.7;
+    }
+
+.theme-threshold .journey-title {
+    color: #ffffff;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+    animation: title-pulse-subtle 4s  infinite ease-in-out;
+}
+
+@keyframes title-pulse-subtle {
+    0%, 100% { opacity: 1; letter-spacing: 2px; filter: blur(0px); }
+    50% { opacity: 0.8; letter-spacing: 4px; filter: blur(1px); }
+}
+
+.theme-formation .journey-title {
+    background: linear-gradient(to bottom, #ffffff 0%, #7be6ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 15px rgba(123, 230, 255, 0.4));
+    font-weight: 700;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+}
+
+.theme-formation .journey-panel {
+    border: 1px solid rgba(123, 230, 255, 0.3) !important;
+    box-shadow: 0 0 100px rgba(123, 230, 255, 0.1) inset;
+}
+
+.theme-leakage .journey-title {
+    text-shadow: 2px 0px 0px rgba(74, 144, 226, 0.5), -2px 0px 0px rgba(226, 74, 74, 0.5);
+}
+
+.theme-bloom .journey-title {
+    background: -webkit-linear-gradient(#fecfef, #ff9a9e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.card-chart-container {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.chart-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 12px;
+}
+.spectrum-bar {
+    width: 100%;
+    height: 4px;
+    display: flex;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
+.spectrum-segment.positive { background: #ffaa00; box-shadow: 0 0 10px #ffaa00; }
+.spectrum-segment.neutral { background: #00e5ff; }
+.spectrum-segment.negative { background: #ff0044; box-shadow: 0 0 10px #ff0044; }
+
+.chart-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    color: #888;
+}
+.chart-legend .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+.dot.pos { background: #ffaa00; }
+.dot.neu { background: #00e5ff; }
+.dot.neg { background: #ff0044; }
+
+
+.theme-threshold .journey-panel {
+    background: rgba(5, 5, 5, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.theme-threshold .journey-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: #a0aab5;
+    text-transform: uppercase;
+}
+.theme-threshold .journey-body {
+    color: rgba(255, 255, 255, 0.4);
+    font-family: monospace; 
+    line-height: 2;
+}
+
+
+.theme-leakage .journey-panel {
+    background: rgba(15, 20, 30, 0.5);
+    border-left: 3px solid #4a90e2; 
+}
+.theme-leakage .journey-title {
+    font-family: 'Cinzel', serif;
+    color: #e6e6e6;
+    text-shadow: 2px 0px 0px rgba(74, 144, 226, 0.5), -2px 0px 0px rgba(226, 74, 74, 0.5);
+    transform: skewX(-2deg);
+}
+.theme-leakage .journey-body {
+    color: #b8c4d1;
+    font-style: italic; 
+}
+
+
+.theme-bloom .journey-panel {
+    background: rgba(30, 15, 25, 0.6);
+    border: 1px solid rgba(255, 100, 150, 0.3);
+    box-shadow: 0 0 80px rgba(200, 50, 100, 0.2); 
+}
+.theme-bloom .journey-title {
+    font-family: 'Cinzel', serif;
+    color: #ff9a9e;
+    background: -webkit-linear-gradient(#fecfef, #ff9a9e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent; 
+    text-shadow: 0 0 20px rgba(255, 154, 158, 0.5);
+}
+.theme-bloom .journey-body {
+    color: #fce4ec;
+    font-size: 1.1em; 
+}
+.theme-bloom .journey-kicker {
+    color: #ffb7b2;
+}
+
+.theme-formation .journey-panel {
+    background: rgba(5, 10, 20, 0.7);
+    border: none;
+    border-top: 1px solid rgba(123, 230, 255, 0.8);
+    border-bottom: 1px solid rgba(123, 230, 255, 0.8);
+    box-shadow: 0 30px 100px rgba(123, 230, 255, 0.15);
+}
+.theme-formation .journey-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    color: #ffffff;
+    letter-spacing: 4px;
+    text-align: center; 
+}
+.theme-formation .journey-kicker,
+.theme-formation .journey-body,
+.theme-formation .journey-hint,
+.theme-formation .journey-progress {
+    text-align: center; 
+}
+.theme-formation .journey-body {
+    color: #d1e8ff;
+    line-height: 2.2;
+}
+</style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./node_modules/three/build/three.module.js",
+                "three/addons/": "./node_modules/three/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+<div id="loader" aria-hidden="false">
+    <div class="loader-stars" aria-hidden="true">
+        <span class="loader-star" style="--tx:-260px;--ty:-110px;--delay:0.02s;"></span>
+        <span class="loader-star" style="--tx:-190px;--ty:-170px;--delay:0.05s;"></span>
+        <span class="loader-star" style="--tx:-70px;--ty:-210px;--delay:0.08s;"></span>
+        <span class="loader-star" style="--tx:60px;--ty:-240px;--delay:0.04s;"></span>
+        <span class="loader-star" style="--tx:180px;--ty:-150px;--delay:0.12s;"></span>
+        <span class="loader-star" style="--tx:250px;--ty:-80px;--delay:0.14s;"></span>
+        <span class="loader-star" style="--tx:290px;--ty:10px;--delay:0.18s;"></span>
+        <span class="loader-star" style="--tx:210px;--ty:140px;--delay:0.09s;"></span>
+        <span class="loader-star" style="--tx:120px;--ty:210px;--delay:0.16s;"></span>
+        <span class="loader-star" style="--tx:-20px;--ty:250px;--delay:0.1s;"></span>
+        <span class="loader-star" style="--tx:-150px;--ty:180px;--delay:0.07s;"></span>
+        <span class="loader-star" style="--tx:-250px;--ty:90px;--delay:0.2s;"></span>
+    </div>
+    <canvas id="eeg-canvas" aria-hidden="true"></canvas>
+
+    <div class="loader-content">
+        <div class="loader-breath"></div>
+        <div id="loader-copy" class="loader-copy is-visible">
+            <p id="loader-copy-en" class="loader-copy-en">It began with a simple notebook beside my bed, a micro-record of fragmented dreams and restless nights.</p>
+            <p id="loader-copy-cn" class="loader-copy-cn">这一切始于我床头的一本笔记——一份记录着破碎梦境与辗转反侧的微观档案。</p>
+        </div>
+        <div class="loader-progress">
+            <div class="loader-progress-meta">
+                <span id="loader-status">Warming The Dream Field</span>
+                <span id="progress-text">0%</span>
+            </div>
+            <div class="loader-progress-track">
+                <div id="loader-progress-fill"></div>
+            </div>
+        </div>
+        <button id="loader-enter" type="button" aria-label="Hold to enter the dreams">
+            <span class="hold-shell">
+                <span class="hold-ring" aria-hidden="true">
+                    <span id="hold-fill" class="hold-fill"></span>
+                </span>
+                <span class="hold-label">
+                    长按进入梦境
+                    <span class="hold-sub">Hold to enter the dreams</span>
+                </span>
+            </span>
+        </button>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<div class="ui-layer">
+    <div id="tooltip"></div>
+
+    <button id="info-toggle" type="button" aria-label="Open archive guide">
+        <svg class="info-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M2.4 12C4.5 7.4 8 5.1 12 5.1C16 5.1 19.5 7.4 21.6 12C19.5 16.6 16 18.9 12 18.9C8 18.9 4.5 16.6 2.4 12Z" stroke="currentColor" stroke-width="1.2"/>
+            <circle cx="12" cy="12" r="3.15" stroke="currentColor" stroke-width="1.2"/>
+            <circle cx="12" cy="12" r="0.9" fill="currentColor"/>
+        </svg>
+        <span class="info-toggle-label">Archive Guide / 档案导览</span>
+    </button>
+
+    <div id="hud-top-left">
+        <div class="hud-kicker">Interactive Dear Data</div>
+        <h1 class="hud-title">DEED<br>SCAPE</h1>
+        <div class="hud-subtitle">A cinematic archive of dreams, emotion and neural residue /</div>
+        <div class="hud-subtitle">梦境、情绪与脑电的影像化档案</div>
+    </div>
+
+    <div id="hud-bottom-left">
+        <p class="hud-storyline">Each pulsar is a remembered dream suspended inside a shared galaxy of dreams.</p>
+        <p class="hud-storyline">每一颗脉冲星球都是受试者们共同构建的银河中记录的梦境。</p>
+        <p id="hud-instruction">Hover a luminous node to glimpse its emotional weather. Click to enter the archive and follow the dream deeper. 将鼠标放置于发光节点上，可预览情绪轮廓，点击后沉浸式阅读梦境档案。</p>
+    </div>
+
+    <aside id="info-panel" aria-hidden="true">
+        <div class="info-shell">
+            <div class="info-topbar">
+                <div class="info-topbar-title">
+                    <strong>Global Info / 全局说明</strong>
+                    <span>THE DEED SCAPE:</span>
+                    <span>Topography of the Subconscious</span>
+                </div>
+                <button id="info-close" type="button" aria-label="Close guide">×</button>
+            </div>
+
+            <div id="info-scroll">
+                <section class="info-section">
+                    <div class="info-section-kicker">The Concept | 引言</div>
+                    <h2 class="info-section-title">A personal notebook opens into a collective sleep archive.</h2>
+                    <p class="info-paragraph en">I spent weeks tracking my own sleep patterns, waking up to jot down fading emotions before they dissolved into the morning light. This intimate, personal ritual sparked a profound curiosity: What does a dream actually look like when translated into raw, neurological data? To answer this, my personal diary merges with the Dream Emotion Evaluation Dataset (DEED). It captures the electrical echoes of 38 human subjects during their REM (Rapid Eye Movement) sleep phase. Here, abstract biological signals and deeply private reveries are rendered into a navigable "Consciousness Helix"—a physical, three-dimensional space where you can explore the galaxy of dreams.</p>
+                    <p class="info-paragraph cn">我曾连续数周追踪自己的睡眠轨迹，在晨光吞噬梦境前，匆忙记下残存的情绪。这种极度私密的自我量化实践引发了一个深刻的好奇：当梦境被转化为原始的神经学数据时，它究竟是什么形状？为了寻找答案，我的个人记录与 DEED（梦境情感评估数据集）相交汇，捕捉了 38 位受试者在 REM（快速眼动）睡眠阶段的神经电波回声。在这里，抽象的生物信号与极其私密的幻想被渲染成一个可漫游的“意识螺旋”——一个可以探索梦境的三维星系。</p>
+                </section>
+
+                <section class="info-section">
+                    <div class="info-section-kicker">How to Read the Archive | 视觉解码</div>
+                    <div class="info-section-subtitle">To navigate this space, you must understand its physical laws. / 要在这个潜意识空间中航行，你必须理解它的物理法则。</div>
+
+                    <div class="info-visual-card" data-demo="luminescence">
+                        <div class="info-orb" aria-hidden="true"></div>
+                        <div class="info-card-title">
+                            <strong>Luminescence &amp; Scale | 发光与体积</strong>
+                            <span>EEG Intensity / 脑电强度</span>
+                            <p class="info-paragraph en">The size and pulsing glow of each node are strictly driven by the subject's EEG intensity. Brighter, more volatile nodes indicate highly active neural storms, mirroring the restless, high-stress nights I recorded in my own logs.</p>
+                            <p class="info-paragraph cn">每个节点的尺寸和脉冲光晕，完全由受试者的脑电波动强度决定。明亮、波动的节点代表强烈的情感风暴，这正如我在日志中所记录的那些因焦虑而难以入眠的夜晚。</p>
+                        </div>
+                    </div>
+
+                    <div class="info-visual-card" data-demo="chromatic">
+                        <div class="info-card-title" style="grid-column: 1 / -1;">
+                            <strong><span class="gradient-underline">Chromatic Emotion | 色彩情绪</span></strong>
+                            <span>Dream State / 梦境状态</span>
+                            <p class="info-paragraph en">Colors are not random; they are the pigments of the soul. Golden hues radiate warmth and positive sentiments; deep blues and violets signify negative descents into sadness; while crimson pulses alert to underlying fears. It is a spectrum mapping the emotional tone of the dream.</p>
+                            <p class="info-paragraph cn">颜色并非随机，它们是灵魂的颜料。金色散发温暖与积极的共鸣；蓝紫色象征着坠入悲伤的消极下沉；而深红色脉冲则在展示了内心深处的恐惧。这是精准映射梦境情感基调的光谱。</p>
+                        </div>
+                    </div>
+
+                    <div class="info-visual-card" data-demo="stimulus">
+                        <div class="info-card-title" style="grid-column: 1 / -1;">
+                            <strong>The Stimulus Bridge | 刺激物桥梁</strong>
+                            <span>Waking Echoes / 清醒回声</span>
+                            <p class="info-paragraph en">Our waking lives constantly bleed into our slumber. Many of these dreams were seeded by specific video stimuli watched before sleep. By clicking on a node, you reveal the precise text narrative of the dream alongside the waking media that triggered it—connecting the external world to the internal mind.</p>
+                            <p class="info-paragraph cn">清醒时的现实总会潜移默化地影响我们的梦境。这里的许多梦境，都是由睡前观看的特定视频刺激所“播种”的。点击节点，你将揭开梦境的具体文字叙事，以及触发它的清醒世界媒介——这建立了一座连接外部物理世界与内在心灵的桥梁。</p>
+                            <div class="bridge-chip-row">
+                                <span class="info-chip">Video Stimulus / 视频刺激</span>
+                                <span class="info-chip">Dream Text / 梦境文本</span>
+                                <span class="info-chip">REM EEG / 快速眼动脑电</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-section">
+                    <div class="info-section-kicker">The Call To Action | 结语</div>
+                    <h3 class="info-section-title">You are no longer an observer.</h3>
+                    <p class="info-paragraph en">You are walking through the archived memories of sleeping minds, a shared galaxy from your experiences and countless other personal nights. Click a planet. Isolate the signal. Feel the data.</p>
+                    <p class="info-paragraph cn">你不再是一个旁观者。你正穿行于沉睡心灵的记忆档案中，这是一幅由你我的经历与无数个夜晚交织而成的星系。点击一个星球。分离那束信号。感受心灵脉冲。</p>
+                </section>
+            </div>
+        </div>
+    </aside>
+
+    <aside id="sidebar" aria-hidden="true">
+        <div class="sidebar-shell">
+            <div class="sidebar-scroll">
+                <section>
+                    <div class="section-label">Archive Entry</div>
+                    <div id="side-kicker" class="archive-kicker">Dream Archive / Pending Signal</div>
+                    <div id="side-id" class="archive-id">S0000</div>
+                    <div id="side-date" class="archive-meta">Record date / 记录日期: Unknown</div>
+                    <div id="side-sequence" class="archive-sequence">Pulse 0 of 0 / 第 0 条</div>
+                </section>
+
+                <section>
+                    <div class="section-label">Neural Activity / 神经活动</div>
+                    <div class="data-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">EEG Intensity / 脑电强度</div>
+                            <div id="side-eeg-val" class="metric-value">0.00</div>
+                            <div id="side-eeg-note" class="metric-note">No measurement available / 暂无有效测量</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Stimulus Mode / 刺激模式</div>
+                            <div id="side-stimulus-mode" class="metric-value">Unclassified</div>
+                            <div id="side-emotion" class="metric-note">Emotion / 情绪: Unknown</div>
+                        </div>
+                    </div>
+                    <div class="eeg-bar-container">
+                        <div id="eeg-bar-fill"></div>
+                    </div>
+                    <div class="eeg-scale">
+                        <span>Quiet / 低</span>
+                        <span>Intense / 高</span>
+                    </div>
+                </section>
+
+                <section>
+                    <div class="section-label">Stimulus & Affect / 刺激与情绪</div>
+                    <div class="tag-cloud">
+                        <div id="side-video-type" class="archive-tag">Unknown context</div>
+                        <div id="side-emotion-tag" class="archive-tag">Unknown emotion</div>
+                    </div>
+                    <div id="side-video-name" class="archive-meta" style="margin-top: 16px;">Stimulus / 刺激源: Unknown</div>
+                </section>
+
+                <section>
+                    <div class="section-label">Narrative Digest / 叙事摘要</div>
+                    <blockquote id="side-dream-content" class="dream-quote">"No narrative data available for this node."</blockquote>
+                </section>
+
+                <section>
+                    <div class="section-label">Interpretive Thread / 叙事解读</div>
+                    <div id="side-thread" class="sidebar-thread">Select a node to reveal how affect, stimulus and EEG intensity braid together inside the dream record.</div>
+                </section>
+
+                <section>
+                    <div class="section-label">Resonance Route / 共振路线</div>
+                    <div class="route-card">
+                        <div id="side-route-title" class="route-title">Awaiting route / 等待路线</div>
+                        <div id="side-route-detail" class="route-detail">
+                            The archive will propose the next reading path once a pulse is selected.
+                            <span class="bilingual-sub">选中节点后，系统将按层级提供下一条“相似脉冲”路线。</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="sidebar-actions">
+                <button id="btn-next" class="action-button" type="button">Follow A Similar Pulse / 跟随相似脉冲</button>
+                <div class="sidebar-hint">Routes now branch by participant, stimulus, emotion and EEG closeness. Press ESC or use the return button to drift back into the full constellation. 现在你可以沿着同被试、同视频、同类情绪与 EEG 相近度继续探索。</div>
+            </div>
+        </div>
+    </aside>
+
+    <div id="dream-fragment" aria-hidden="true">
+        <div class="dream-fragment-kicker">Dream Fragment / 梦境碎片</div>
+        <div id="dream-fragment-title" class="dream-fragment-title">Signal isolated</div>
+        <div id="dream-fragment-meta" class="dream-fragment-meta">Awaiting selection</div>
+        <div id="dream-fragment-media" class="dream-fragment-media">
+            <span id="dream-fragment-media-label" class="dream-fragment-media-label">Procedural Visual / 程序化视觉</span>
+        </div>
+        <div id="dream-fragment-body" class="dream-fragment-body"></div>
+    </div>
+
+    <div id="journey-overlay" aria-hidden="true">
+        <div id="journey-media" class="journey-media" aria-hidden="true"></div>
+        <div class="journey-stack">
+            <div id="journey-panel-a" class="journey-panel is-active">
+                <div class="journey-panel-inner">
+                    <div id="journey-kicker" class="journey-kicker">Threshold Journey / 入梦阈值</div>
+                    <div id="journey-title" class="journey-title">Drifting beneath wakefulness</div>
+                    <div id="journey-body" class="journey-body"></div>
+                    <div id="journey-hint" class="journey-hint">Scroll to continue / 滚动继续</div>
+                    <div id="journey-progress" class="journey-progress"></div>
+                </div>
+            </div>
+            <div id="journey-panel-b" class="journey-panel" aria-hidden="true"></div>
+        </div>
+    </div>
+
+    <button id="btn-back" type="button">Return To Orbit / 返回星群</button>
+    <button id="btn-view-toggle" type="button">Top-down View / 俯视星系</button>
+</div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
