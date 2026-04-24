@@ -173,7 +173,7 @@ controls.maxDistance = 340;
 controls.minDistance = 18;
 controls.enablePan = false;
 
-const clock = new THREE.Timer();
+const clock = new THREE.Clock();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
@@ -1906,7 +1906,7 @@ function updateInfoDemo() {
 
 function animate() {
     requestAnimationFrame(animate);
-    const elapsedTime = clock.getElapsed(); 
+    const elapsedTime = clock.getElapsedTime();
 
     nodes.forEach((node) => {
         if (node.material.uniforms) {
